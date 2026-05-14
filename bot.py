@@ -9,8 +9,10 @@ from dateutil import parser
 # Configuration from environment variables (GitHub Secrets)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
-GOOGLE_CREDENTIALS_JSON = os.environ.get('GOOGLE_CREDENTIALS_JSON') # The client_secret.json content
-GOOGLE_TOKEN_JSON = os.environ.get('GOOGLE_TOKEN_JSON')           # The token.json content (refresh token)
+GOOGLE_TOKEN_JSON = os.environ.get('GOOGLE_TOKEN_JSON')
+
+# Calendars to ignore (exact names or keywords)
+SKIP_CALENDARS = ["Christian Holidays", "Holidays in Germany", "Holidays in Ukraine", "Jewish Holidays"]
 
 def get_google_service(name, version, credentials_dict, token_dict):
     creds = Credentials.from_authorized_user_info(token_dict)
@@ -29,6 +31,10 @@ def fetch_calendar_events(service):
     calendar_list = service.calendarList().list().execute().get('items', [])
     
     for calendar in calendar_list:
+        summary = calendar.get('summary', '')
+        if any(skip_name.lower() in summary.lower() for skip_name in SKIP_CALENDARS):
+            continue
+            
         events_result = service.events().list(
             calendarId=calendar['id'],
             timeMin=now_iso,
@@ -55,26 +61,33 @@ def fetch_tasks(service):
     
     due_today = []
     overdue = []
+    other_tasks = []
     
     tasklists = service.tasklists().list().execute().get('items', [])
     for tl in tasklists:
         tasks = service.tasks().list(tasklist=tl['id'], showCompleted=False, showHidden=True).execute().get('items', [])
         for t in tasks:
             due_str = t.get('due')
+            title = t.get('title', 'No Title')
+            
             if not due_str:
+                other_tasks.append(title)
                 continue
             
             due_date = parser.isoparse(due_str).astimezone(timezone.utc)
             
             if today_start <= due_date < today_end:
-                due_today.append(t.get('title', 'No Title'))
+                due_today.append(title)
             elif due_date < today_start:
-                overdue.append(t.get('title', 'No Title'))
+                overdue.append(title)
+            else:
+                # Due in the future
+                other_tasks.append(title)
                 
-    return due_today, overdue
+    return due_today, overdue, other_tasks
 
-def format_message(events, due_today, overdue):
-    lines = ["\U0001F305 *Morning Digest* \U0001F305\n"]
+def format_agenda_message(events, due_today):
+    lines = ["\U0001F305 *Today's Agenda* \U0001F305\n"]
     
     # Calendar Section
     lines.append("\U0001F4C5 *Today's Events:*")
@@ -100,12 +113,25 @@ def format_message(events, due_today, overdue):
         for t in due_today:
             lines.append(f"\u2022 {t}")
             
+    return "\n".join(lines)
+
+def format_backlog_message(overdue, other_tasks):
+    lines = ["\U0001F5D2 *Task Backlog* \U0001F5D2\n"]
+            
     # Overdue Section
-    lines.append("\n\u26A0 *Overdue Tasks:*")
+    lines.append("\U0001F6A8 *Overdue Tasks:*")
     if not overdue:
         lines.append("_Nothing here_")
     else:
         for t in overdue:
+            lines.append(f"\u2022 {t}")
+
+    # All Other Tasks Section
+    lines.append("\n\U0001F308 *Other Pending Tasks:*")
+    if not other_tasks:
+        lines.append("_Nothing here_")
+    else:
+        for t in other_tasks:
             lines.append(f"\u2022 {t}")
             
     return "\n".join(lines)
@@ -131,11 +157,17 @@ def main():
     tasks_service = get_google_service('tasks', 'v1', None, token_dict)
     
     events = fetch_calendar_events(cal_service)
-    due_today, overdue = fetch_tasks(tasks_service)
+    due_today, overdue, other_tasks = fetch_tasks(tasks_service)
     
-    msg = format_message(events, due_today, overdue)
-    send_telegram(msg)
-    print("Digest sent successfully!")
+    # Message 1: Today's Agenda
+    agenda_msg = format_agenda_message(events, due_today)
+    send_telegram(agenda_msg)
+    
+    # Message 2: Task Backlog
+    backlog_msg = format_backlog_message(overdue, other_tasks)
+    send_telegram(backlog_msg)
+    
+    print("Both digest messages sent successfully!")
 
 if __name__ == '__main__':
     main()
