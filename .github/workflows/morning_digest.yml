@@ -4,6 +4,9 @@ on:
   schedule:
     # 04:17 UTC (= 6:20 CEST in summer) every day. Adjust this cron expression to change delivery time.
     - cron: '17 4 * * *'
+    - cron: '45 8 * * *'
+    - cron: '50 8 * * *'
+    - cron: '55 8 * * *'
   workflow_dispatch: # Allows manual triggering for testing
 
 jobs:
