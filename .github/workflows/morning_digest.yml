@@ -6,7 +6,8 @@ on:
     - cron: '17 4 * * *'
     - cron: '45 8 * * *'
     - cron: '50 8 * * *'
-    - cron: '55 8 * * *'
+    - cron: '13 11 * * *'
+      timezone: 'Europe/Berlin'
   workflow_dispatch: # Allows manual triggering for testing
 
 jobs:
