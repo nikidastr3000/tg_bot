@@ -25,15 +25,20 @@ A Python-based Telegram bot that sends a personalized morning digest of your Goo
 ### 3. Generate Refresh Token
 Since this bot runs on GitHub Actions, it needs a persistent refresh token.
 1. Install requirements locally: `pip install google-auth-oauthlib`.
-2. Run a small script to authorize and generate `token.json`:
+2. Run the provided `script.py` (or use this code) to authorize and generate your token:
    ```python
    from google_auth_oauthlib.flow import InstalledAppFlow
+   import json
+
    scopes = ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/tasks.readonly']
    flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', scopes)
-   creds = flow.run_local_server(port=0)
-   print(creds.to_json()) # This is your GOOGLE_TOKEN_JSON
+
+   # access_type='offline' ensures we get a refresh_token
+   # prompt='consent' ensures a new refresh_token is issued
+   creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+   print(creds.to_json())
    ```
-3. Copy the output JSON string.
+3. Copy the full JSON output.
 
 ### 4. GitHub Secrets
 Add the following secrets to your GitHub repository (**Settings > Secrets and variables > Actions**):
