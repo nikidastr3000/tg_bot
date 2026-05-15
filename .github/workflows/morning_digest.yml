@@ -2,8 +2,8 @@ name: Morning Digest Bot
 
 on:
   schedule:
-    # 07:00 UTC every day. Adjust this cron expression to change delivery time.
-    - cron: '0 7 * * *'
+    # 04:17 UTC (= 6:20 CEST in summer) every day. Adjust this cron expression to change delivery time.
+    - cron: '17 4 * * *'
   workflow_dispatch: # Allows manual triggering for testing
 
 jobs:
